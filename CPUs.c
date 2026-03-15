@@ -1,7 +1,7 @@
 /** CPUs.c
  * ===========================================================
- * Name: <Last Name, First Name>
- * Section: <Section>
+ * Name: Liu, Jaden
+ * Section: 
  * Project: PEX2 - CPU Scheduling Simulator
  * Purpose: Implements six CPU scheduling algorithms as POSIX threads.
  *          Each thread follows the same pattern every timestep:
@@ -107,11 +107,23 @@ void* SJFcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    // Process* p = NULL;  // TODO: uncomment when you implement this function
+    Process* p = NULL;  // TODO: uncomment when you implement this function
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
+        if(p==NULL){
+            pthread_mutex_lock(&(svars->readyQLock));
+            p = qRemove(&(svars->readyQ),qShortest(&(svars->readyQ)));
 
+            if(p==NULL){
+                prtinf("No process");
+            }
+            else{
+                printf("Scheduled PID %d\n",p->PID);
+            }
+            //unlock
+            pthread_mutex_unlock(&(svars->readyQLock));
+        }
         sem_post(svars->mainSem);
     }
 }
