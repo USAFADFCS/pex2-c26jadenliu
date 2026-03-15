@@ -116,7 +116,7 @@ void* SJFcpu(void* param) {
             p = qRemove(&(svars->readyQ),qShortest(&(svars->readyQ)));
 
             if(p==NULL){
-                prtinf("No process");
+                printf("no process to schedule\n");
             }
             else{
                 printf("Scheduled PID %d\n",p->PID);
@@ -127,7 +127,10 @@ void* SJFcpu(void* param) {
         if(p!=NULL){
             p->burstRemaining--;
             if(p->burstRemaining==0){
-                finishProcess(svars,&p);
+                // finishProcess(svars,&p);
+                pthread_mutex_lock(&(svars->finishedQLock));
+                qInsert(&(svars->finishedQ), p);
+                pthread_mutex_unlock(&(svars->finishedQLock));
             }
         }
         sem_post(svars->mainSem);
@@ -144,12 +147,34 @@ void* NPPcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    // Process* p = NULL;  // TODO: uncomment when you implement this function
+    Process* p = NULL;  // TODO: uncomment when you implement this function
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
+        if(p==NULL){
+            pthread_mutex_lock(&(svars->readyQLock));
+            p = qRemove(&(svars->readyQ),qPriority(&(svars->readyQ)));
 
+            if(p==NULL){
+                printf("no process to schedule\n");
+            }
+            else{
+                printf("Scheduled PID %d\n",p->PID);
+            }
+            //unlock
+            pthread_mutex_unlock(&(svars->readyQLock));
+        }
+
+        if(p!=NULL){
+            p->burstRemaining--;
+            if(p->burstRemaining==0){
+                pthread_mutex_lock(&(svars->finishedQLock));
+                qInsert(&(svars->finishedQ), p);
+                pthread_mutex_unlock(&(svars->finishedQLock));
+            }
+        }
         sem_post(svars->mainSem);
+
     }
 }
 
