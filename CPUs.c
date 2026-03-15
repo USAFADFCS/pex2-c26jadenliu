@@ -124,6 +124,12 @@ void* SJFcpu(void* param) {
             //unlock
             pthread_mutex_unlock(&(svars->readyQLock));
         }
+        if(p!=NULL){
+            p->burstRemaining--;
+            if(p->burstRemaining==0){
+                finishProcess(svars,&p);
+            }
+        }
         sem_post(svars->mainSem);
     }
 }
