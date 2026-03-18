@@ -14,7 +14,15 @@
  *          All accesses to readyQ and finishedQ are protected by their
  *          respective mutex locks.
  * ===========================================================
- * Documentation Statement: <describe any help received>
+ * Documentation Statement:
+ * I discussed with C1C Ian Miles on what resources he used last year to build out the algorithms for his PEX 2.
+ * Based on that discussion, the following resources were recommended to me and used to guide my implementation 
+ * of the algorithms.
+ * For all algorithms excluding FIFO, I referenced https://www.geeksforgeeks.org/dsa/program-for-shortest-job-first-or-sjf-cpu-scheduling-set-1-non-preemptive/ 
+ * and the other subpages for each algorithm. Specifically for round robin I referenced
+ * https://student.cs.uwaterloo.ca/~cs350/F24/notes/scheduling.pdf from UW for checking time
+ * quantum and setting p requested, reinserting with qInsert and grabbing from front of 
+ * FIFO.
  * =========================================================== */
 
 #include <stdio.h>
@@ -107,7 +115,7 @@ void* SJFcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    Process* p = NULL;  // TODO: uncomment when you implement this function
+    Process* p = NULL;
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
@@ -195,10 +203,19 @@ void* RRcpu(void* param) {
     int qTime = 0;
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
+        if(p!=NULL && qTime == svars->quantum){
+            pthread_mutex_lock(&(svars->readyQLock));
+            p->requeued=true;
+            qInsert(&(svars->readyQ),p);
+            p=NULL;
+            pthread_mutex_unlock(&(svars->readyQLock));
+            qTime=0;
+            p=NULL;
+        }
         //normal check
         if(p==NULL){
             pthread_mutex_lock(&(svars->readyQLock));
-            p = qRemove(&(svars->readyQ),qPriority(&(svars->readyQ)));
+            p = qRemove(&(svars->readyQ),0);
 
             if(p==NULL){
                 printf("No process to schedule\n");
@@ -210,14 +227,7 @@ void* RRcpu(void* param) {
             pthread_mutex_unlock(&(svars->readyQLock));
         }
 
-        if(p!=NULL && qTime == svars->quantum){
-            pthread_mutex_lock(&(svars->readyQLock));
-            p->requeued=true;
-            qInsert(&(svars->readyQ),p);
-            p=NULL;
-            pthread_mutex_unlock(&(svars->readyQLock));
-            qTime=0;
-        }
+        
 
         if(p!=NULL){
             p->burstRemaining--;
@@ -227,6 +237,7 @@ void* RRcpu(void* param) {
                 qInsert(&(svars->finishedQ), p);
                 pthread_mutex_unlock(&(svars->finishedQLock));
                 p=NULL;
+                qTime=0;
             }
 
         }
@@ -244,11 +255,42 @@ void* SRTFcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    // Process* p = NULL;  // TODO: uncomment when you implement this function
+    Process* p = NULL; 
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
+        pthread_mutex_lock(&svars->readyQLock);
+        //check short
+        if(p!=NULL && qShortestBR(&(svars->readyQ)) < (p->burstRemaining)){
+            p->requeued=true;
+            qInsert(&(svars->readyQ),p);
+            p=NULL;
+        }
 
+        if(p==NULL){
+            //pthread_mutex_lock(&(svars->readyQLock));
+            p=qRemove(&(svars->readyQ), qShortest(&(svars->readyQ)));
+            if(p==NULL){
+                printf("No process to schedule\n");
+            }
+            else{
+                printf("Scheduling PID %d\n",p->PID);
+            }
+            //unlock
+            //pthread_mutex_unlock(&(svars->readyQLock));
+
+        }
+        pthread_mutex_unlock(&(svars->readyQLock));
+
+        if(p!=NULL){
+            p->burstRemaining--;
+            if(p->burstRemaining==0){
+                pthread_mutex_lock(&(svars->finishedQLock));
+                qInsert(&(svars->finishedQ), p);
+                pthread_mutex_unlock(&(svars->finishedQLock));
+                p=NULL;
+            }
+        }
         sem_post(svars->mainSem);
     }
 }
@@ -262,11 +304,37 @@ void* PPcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    // Process* p = NULL;  // TODO: uncomment when you implement this function
+    Process* p = NULL;
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
+        //pthread_mutex_lock()
 
+        if(p!=NULL && qGetPriority(&(svars->readyQ)) < p->priority){
+            p->requeued=true;
+            qInsert(&(svars->readyQ),p);
+            p=NULL;
+        }
+
+        if(p==NULL){
+            p=qRemove(&(svars->readyQ),qPriority(&(svars->readyQ)));
+            if(p==NULL){
+                printf("No process to schedule\n");
+            }
+            else{
+                printf("Scheduling PID %d\n",p->PID);
+            }
+        }
+        //unlock?
+        if(p!=NULL){
+            p->burstRemaining--;
+            if(p->burstRemaining==0){
+                pthread_mutex_lock(&(svars->finishedQLock));
+                qInsert(&(svars->finishedQ), p);
+                pthread_mutex_unlock(&(svars->finishedQLock));
+                p=NULL;
+            }
+        }
         sem_post(svars->mainSem);
     }
 }
