@@ -12,16 +12,16 @@
  *          Supports sequential (default) and parallel CPU signaling modes;
  *          see usage() for the full argument list and a description of each.
  * ===========================================================
- * Documentation Statement: <describe any help received>
+ * Documentation Statement: Resources listed on CPUs.c
  * ===========================================================
  * ======================================================================
- * Required Features Not Included:1
- *       1)
+ * Required Features Not Included:
+ *       1) None
  *       2)
  *       3)
  * ======================================================================
  * Known Bugs:
- *       1)
+ *       1) None
  *       2)
  *       3)
  * ====================================================================== */

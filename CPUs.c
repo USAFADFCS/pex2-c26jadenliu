@@ -238,6 +238,7 @@ void* RRcpu(void* param) {
                 pthread_mutex_unlock(&(svars->finishedQLock));
                 p=NULL;
                 qTime=0;
+                //s
             }
 
         }
@@ -308,7 +309,7 @@ void* PPcpu(void* param) {
 
     while (1) {
         sem_wait(svars->cpuSems[threadNum]);
-        //pthread_mutex_lock()
+        pthread_mutex_lock(&svars->readyQLock);
 
         if(p!=NULL && qGetPriority(&(svars->readyQ)) < p->priority){
             p->requeued=true;
@@ -325,7 +326,7 @@ void* PPcpu(void* param) {
                 printf("Scheduling PID %d\n",p->PID);
             }
         }
-        //unlock?
+        pthread_mutex_unlock(&(svars->readyQLock));
         if(p!=NULL){
             p->burstRemaining--;
             if(p->burstRemaining==0){
